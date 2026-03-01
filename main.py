@@ -3,7 +3,7 @@ import telebot
 from telebot import types
 
 # ПРЯМАЯ ВСТАВКА БЕЗ ПЕРЕМЕННЫХ
-TOKEN = "8646275203:AAFo7HoQ3YKa5fyxVZYe-Qu_421UIyqTD-8"
+TOKEN = "8646275203:AAGh_s34uGHfrLu36x00YM-j91YIU63cnD4"
 
 bot = telebot.TeleBot(TOKEN)
 
