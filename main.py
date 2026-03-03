@@ -3,7 +3,7 @@ import logging
 from aiogram import Bot, Dispatcher, executor, types
 
 # Берем токен из переменных окружения
-API_TOKEN = os.getenv('BOT_TOKEN')
+API_TOKEN = os.getenv'8646275203:AAFenGqJIBpvk1DXrbBqDIOPiOILz3Zyllg'
 
 # Проверка: если токен не нашелся, бот напишет об этом в логи
 if not API_TOKEN:
