@@ -36,36 +36,47 @@ async def start_cmd(message: types.Message):
         reply_markup=get_lang_menu()
     )
 
-# ОБРАБОТКА ВЫБОРА ЯЗЫКА
+# 1. ОБЩАЯ ОБРАБОТКА ЯЗЫКА (Для всех)
 @dp.message_handler(lambda message: message.text in ['🇷🇺 Русский', '🇬🇧 English', '🇳🇱 Nederlands'])
 async def set_lang(message: types.Message):
     user_id = message.from_user.id
+    if user_id not in users_db:
+        users_db[user_id] = {}
     users_db[user_id]['lang'] = message.text
     await message.answer(f"Success! Language set to {message.text}", reply_markup=types.ReplyKeyboardRemove())
 
-# --- АДМИН-ПАНЕЛЬ (РАССЫЛКА) ---
-
+# 2. АДМИН-ПАНЕЛЬ (Только для тебя и НЕ для кнопок языка)
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID)
 async def admin_msg(message: types.Message):
-    # Если пишет админ, создаем кнопку "Разослать всем"
+    # Если это вдруг команда (начинается с /), не предлагаем рассылку
+    if message.text.startswith('/'):
+        return
+
+    # Предлагаем рассылку для любого другого текста (ссылки, описания)
     confirm_menu = InlineKeyboardMarkup()
     confirm_menu.add(InlineKeyboardButton("🚀 РАССЫЛКА (Всем)", callback_data="broadcast"))
     confirm_menu.add(InlineKeyboardButton("❌ Отмена", callback_data="cancel"))
     
-    await message.reply("Хозяин, разослать это сообщение всем юзерам?", reply_markup=confirm_menu)
+    await message.reply(f"Админ, рассылаем это сообщение всем?", reply_markup=confirm_menu)
 
+# 3. ОБРАБОТКА КНОПОК РАССЫЛКИ
 @dp.callback_query_handler(lambda c: c.data == 'broadcast')
 async def process_broadcast(callback_query: types.CallbackQuery):
     msg_text = callback_query.message.reply_to_message.text
     count = 0
-    for user_id in users_db:
+    for user_id in list(users_db.keys()):
         try:
             await bot.send_message(user_id, f"📢 НОВОЕ ОБЪЯВЛЕНИЕ:\n\n{msg_text}")
             count += 1
         except Exception:
             pass
     await bot.answer_callback_query(callback_query.id, text=f"Отправлено {count} чел.")
-    await bot.send_message(ADMIN_ID, f"✅ Готово! Рассылка завершена ({count} чел.)")
+    await bot.send_message(ADMIN_ID, f"✅ Рассылка завершена ({count} чел.)")
+
+@dp.callback_query_handler(lambda c: c.data == 'cancel')
+async def cancel_broadcast(callback_query: types.CallbackQuery):
+    await bot.delete_message(callback_query.from_user.id, callback_query.message.message_id)
+    await bot.answer_callback_query(callback_query.id, text="Отменено")
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
