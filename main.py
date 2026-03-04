@@ -2,22 +2,20 @@ import logging
 import datetime
 import pytz
 from aiogram import Bot, Dispatcher, executor, types
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
-# 1. ТВОЙ ТОКЕН
+# 1. НАСТРОЙКИ
 API_TOKEN = '8646275203:AAFenGqJIBpvk1DXrbBqDIOPiOILz3Zyllg'
+ADMIN_ID = 6999400196  # Твой ID
 
-# Настройка логирования
 logging.basicConfig(level=logging.INFO)
-
-# Инициализация бота
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
-# 2. БАЗА ДАННЫХ (в памяти бота)
+# БАЗА ДАННЫХ
 users_db = {} 
 
-# 3. МЕНЮ ВЫБОРА ЯЗЫКА
+# МЕНЮ
 def get_lang_menu():
     menu = ReplyKeyboardMarkup(resize_keyboard=True)
     menu.add(KeyboardButton('🇷🇺 Русский'), KeyboardButton('🇬🇧 English'), KeyboardButton('🇳🇱 Nederlands'))
@@ -30,16 +28,11 @@ async def start_cmd(message: types.Message):
     tz_nl = pytz.timezone('Europe/Amsterdam')
     now_nl = datetime.datetime.now(tz_nl)
     
-    # Записываем юзера, если новый
     if user_id not in users_db:
-        users_db[user_id] = {
-            'join_date': now_nl,
-            'lang': None
-        }
+        users_db[user_id] = {'join_date': now_nl, 'lang': None}
     
     await message.answer(
-        f"Goeiedag! Eindhoven time: {now_nl.strftime('%H:%M')}\n\n"
-        "Choose your language / Выберите язык / Kies uw taal:",
+        f"Goeiedag! Eindhoven: {now_nl.strftime('%H:%M')}\nChoose language:",
         reply_markup=get_lang_menu()
     )
 
@@ -47,25 +40,32 @@ async def start_cmd(message: types.Message):
 @dp.message_handler(lambda message: message.text in ['🇷🇺 Русский', '🇬🇧 English', '🇳🇱 Nederlands'])
 async def set_lang(message: types.Message):
     user_id = message.from_user.id
-    lang_choice = message.text
+    users_db[user_id]['lang'] = message.text
+    await message.answer(f"Success! Language set to {message.text}", reply_markup=types.ReplyKeyboardRemove())
+
+# --- АДМИН-ПАНЕЛЬ (РАССЫЛКА) ---
+
+@dp.message_handler(lambda message: message.from_user.id == ADMIN_ID)
+async def admin_msg(message: types.Message):
+    # Если пишет админ, создаем кнопку "Разослать всем"
+    confirm_menu = InlineKeyboardMarkup()
+    confirm_menu.add(InlineKeyboardButton("🚀 РАССЫЛКА (Всем)", callback_data="broadcast"))
+    confirm_menu.add(InlineKeyboardButton("❌ Отмена", callback_data="cancel"))
     
-    # Сохраняем язык
-    if user_id in users_db:
-        users_db[user_id]['lang'] = lang_choice
-    
-    responses = {
-        '🇷🇺 Русский': "Отлично! Теперь я буду присылать тебе жилье на русском. Твои 24 часа демо начались! 🏠",
-        '🇬🇧 English': "Great! I will send you housing options in English. Your 24-hour trial has started! 🏠",
-        '🇳🇱 Nederlands': "Geweldig! Ik stuur je woningopties in het Nederlands. Je 24-uurs proefperiode is begonnen! 🏠"
-    }
-    
-    await message.answer(responses[lang_choice], reply_markup=types.ReplyKeyboardRemove())
-# КОМАНДА ДЛЯ СМЕНЫ ЯЗЫКА
-@dp.message_handler(commands=['language', 'lang'])
-async def change_language(message: types.Message):
-    await message.answer(
-        "Select language / Выберите язык / Kies taal:",
-        reply_markup=get_lang_menu()
-    )
+    await message.reply("Хозяин, разослать это сообщение всем юзерам?", reply_markup=confirm_menu)
+
+@dp.callback_query_handler(lambda c: c.data == 'broadcast')
+async def process_broadcast(callback_query: types.CallbackQuery):
+    msg_text = callback_query.message.reply_to_message.text
+    count = 0
+    for user_id in users_db:
+        try:
+            await bot.send_message(user_id, f"📢 НОВОЕ ОБЪЯВЛЕНИЕ:\n\n{msg_text}")
+            count += 1
+        except Exception:
+            pass
+    await bot.answer_callback_query(callback_query.id, text=f"Отправлено {count} чел.")
+    await bot.send_message(ADMIN_ID, f"✅ Готово! Рассылка завершена ({count} чел.)")
+
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
