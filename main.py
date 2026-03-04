@@ -1,19 +1,50 @@
+import sqlite3 # Добавили библиотеку базы данных
 import logging
 import datetime
 import pytz
 from aiogram import Bot, Dispatcher, executor, types
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+# ... (остальные импорты те же)
 
-# 1. НАСТРОЙКИ
-API_TOKEN = '8646275203:AAFenGqJIBpvk1DXrbBqDIOPiOILz3Zyllg'
-ADMIN_ID = 6999400196  # Твой ID
+# --- НАСТРОЙКИ ---
+API_TOKEN = 'ВСТАВЬ_ТОКЕН'
+ADMIN_ID = 6999400196
 
-logging.basicConfig(level=logging.INFO)
-bot = Bot(token=API_TOKEN)
-dp = Dispatcher(bot)
+# --- РАБОТА С БАЗОЙ ДАННЫХ ---
+def init_db():
+    conn = sqlite3.connect('housing.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            join_date TEXT,
+            lang TEXT,
+            is_premium INTEGER DEFAULT 0
+        )
+    ''')
+    conn.commit()
+    conn.close()
 
-# БАЗА ДАННЫХ
-users_db = {} 
+def add_user(user_id, lang=None):
+    conn = sqlite3.connect('housing.db')
+    cursor = conn.cursor()
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute('INSERT OR IGNORE INTO users (user_id, join_date, lang) VALUES (?, ?, ?)', 
+                   (user_id, now, lang))
+    if lang: # Если язык уже выбран, обновляем его
+        cursor.execute('UPDATE users SET lang = ? WHERE user_id = ?', (lang, user_id))
+    conn.commit()
+    conn.close()
+
+def get_all_users():
+    conn = sqlite3.connect('housing.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT user_id FROM users')
+    users = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return users
+
+# Инициализируем базу при запуске
+init_db()
 
 # --- МЕНЮ (СПИСОК ФЛАГОВ) ---
 def get_lang_menu():
