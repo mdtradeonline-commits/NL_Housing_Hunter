@@ -6,7 +6,7 @@ from aiogram import Bot, Dispatcher, executor, types
 # ... (остальные импорты те же)
 
 # --- НАСТРОЙКИ ---
-API_TOKEN = 'ВСТАВЬ_ТОКЕН'
+API_TOKEN = '8646275203:AAFenGqJIBpvk1DXrbBqDIOPiOILz3Zyllg'
 ADMIN_ID = 6999400196
 
 # --- РАБОТА С БАЗОЙ ДАННЫХ ---
