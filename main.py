@@ -1,31 +1,36 @@
-
 import logging
 import datetime
-import pytz # библиотека для часовых поясов
+import pytz
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
+# 1. ТВОЙ ТОКЕН
 API_TOKEN = '8646275203:AAFenGqJIBpvk1DXrbBqDIOPiOILz3Zyllg'
 
+# Настройка логирования
 logging.basicConfig(level=logging.INFO)
+
+# Инициализация бота
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
-# База данных «на коленке» (пока в памяти бота)
+# 2. БАЗА ДАННЫХ (в памяти бота)
 users_db = {} 
 
-# Кнопки выбора языка
-lang_menu = ReplyKeyboardMarkup(resize_keyboard=True)
-lang_menu.add(KeyboardButton('🇷🇺 Русский'), KeyboardButton('🇬🇧 English'), KeyboardButton('🇳🇱 Nederlands'))
+# 3. МЕНЮ ВЫБОРА ЯЗЫКА
+def get_lang_menu():
+    menu = ReplyKeyboardMarkup(resize_keyboard=True)
+    menu.add(KeyboardButton('🇷🇺 Русский'), KeyboardButton('🇬🇧 English'), KeyboardButton('🇳🇱 Nederlands'))
+    return menu
 
+# КОМАНДА /START
 @dp.message_handler(commands=['start'])
 async def start_cmd(message: types.Message):
-    user_id = message.from_id
-    # Определяем время в Эйндховене
+    user_id = message.from_user.id
     tz_nl = pytz.timezone('Europe/Amsterdam')
     now_nl = datetime.datetime.now(tz_nl)
     
-    # Сохраняем пользователя, если его нет
+    # Записываем юзера, если новый
     if user_id not in users_db:
         users_db[user_id] = {
             'join_date': now_nl,
@@ -35,31 +40,26 @@ async def start_cmd(message: types.Message):
     await message.answer(
         f"Goeiedag! Eindhoven time: {now_nl.strftime('%H:%M')}\n\n"
         "Choose your language / Выберите язык / Kies uw taal:",
-        reply_markup=lang_menu
+        reply_markup=get_lang_menu()
     )
 
+# ОБРАБОТКА ВЫБОРА ЯЗЫКА
 @dp.message_handler(lambda message: message.text in ['🇷🇺 Русский', '🇬🇧 English', '🇳🇱 Nederlands'])
-async @dp.message_handler(lambda message: message.text in ['🇷🇺 Русский', '🇬🇧 English', '🇳🇱 Nederlands'])
 async def set_lang(message: types.Message):
-    user_id = message.from_id
+    user_id = message.from_user.id
     lang_choice = message.text
     
-    # Запоминаем выбор в нашу "базу"
+    # Сохраняем язык
     if user_id in users_db:
         users_db[user_id]['lang'] = lang_choice
     
-    # Ответ в зависимости от выбора
     responses = {
-        '🇷🇺 Русский': "Отлично! Теперь я буду присылать тебе варианты жилья на русском. Твои 24 часа бесплатного поиска начались! 🏠",
-        '🇬🇧 English': "Great! From now on, I will send you housing options in English. Your 24-hour free trial has started! 🏠",
-        '🇳🇱 Nederlands': "Geweldig! Vanaf nu stuur ik je woningopties in het Nederlands. Je gratis proefperiode van 24 uur is begonnen! 🏠"
+        '🇷🇺 Русский': "Отлично! Теперь я буду присылать тебе жилье на русском. Твои 24 часа демо начались! 🏠",
+        '🇬🇧 English': "Great! I will send you housing options in English. Your 24-hour trial has started! 🏠",
+        '🇳🇱 Nederlands': "Geweldig! Ik stuur je woningopties in het Nederlands. Je 24-uurs proefperiode is begonnen! 🏠"
     }
     
     await message.answer(responses[lang_choice], reply_markup=types.ReplyKeyboardRemove())
-    lang = message.text
-    # Тут мы в будущем будем менять язык всех сообщений
-    await message.answer(f"Success! / Принято! / Succes!\nSelected: {lang}", reply_markup=types.ReplyKeyboardRemove())
-    await message.answer("Теперь я буду присылать тебе жилье. Твои 24 часа демо начались!")
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
