@@ -5,7 +5,16 @@ import pytz
 import sqlite3
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+import requests # Теперь это будет работать!
 
+@dp.message_handler(commands=['check_net'])
+async def check_net(message: types.Message):
+    try:
+        # Простой запрос к Гуглу, чтобы проверить связь
+        response = requests.get("https://www.google.com", timeout=5)
+        await message.answer(f"Связь с интернетом есть! Код ответа: {response.status_code}")
+    except Exception as e:
+        await message.answer(f"Ошибка связи: {e}")
 # --- 1. НАСТРОЙКИ ---
 API_TOKEN = '8646275203:AAFenGqJIBpvk1DXrbBqDIOPiOILz3Zyllg'
 ADMIN_ID = 6999400196
