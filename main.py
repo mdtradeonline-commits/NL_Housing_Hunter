@@ -16,12 +16,11 @@ dp = Dispatcher(bot)
 
 # --- 2. ПАРСИНГ ---
 def get_listings_test():
-   scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'android', 'desktop': False})
+    scraper = cloudscraper.create_scraper()
     url = "https://www.funda.nl/zoeken/huur/?selected_area=%22eindhoven%22"
     try:
         response = scraper.get(url, timeout=20)
         soup = BeautifulSoup(response.text, 'html.parser')
-        # Ищем заголовки, которые обычно имеют класс search-result__header-title
         listings = soup.find_all('h2', class_='search-result__header-title')
         results = [item.text.strip() for item in listings[:5]]
         return results if results else ["Сайт не отдал данные (защита или нет квартир)."]
