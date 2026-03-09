@@ -18,7 +18,24 @@ dp = Dispatcher(bot)
 # --- 2. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 def get_listings_test():
     url = "https://www.funda.nl/zoeken/huur/?selected_area=%22eindhoven%22"
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
+   def get_listings_test():
+    url = "https://www.funda.nl/zoeken/huur/?selected_area=%22eindhoven%22"
+    
+    # Вот сюда вставляй заголовки
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Connection": "keep-alive",
+        "Referer": "https://www.google.com/"
+    }
+    
+    session = requests.Session()
+    session.headers.update(headers) # Передаем заголовки в сессию
+    
+    try:
+        response = session.get(url, timeout=10)
+        # ... дальше твой остальной код с BeautifulSoup
     try:
         response = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
