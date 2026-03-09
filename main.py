@@ -18,15 +18,19 @@ dp = Dispatcher(bot)
 # --- 2. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 def get_listings_test():
     url = "https://www.funda.nl/zoeken/huur/?selected_area=%22eindhoven%22"
-    headers = {"User-Agent": "Mozilla/5.0"}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
     try:
         response = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
-        listings = soup.find_all('h2', class_='search-result__header-title')
-        results = [item.text.strip() for item in listings[:3]]
-        return results if results else ["Ничего не нашел."]
+        
+        # Попробуем найти все ссылки на объекты (они обычно стабильнее заголовков)
+        links = soup.find_all('a', href=True)
+        # Выберем те, что ведут на объекты аренды
+        found = [a['href'] for a in links if '/huur/' in a['href']][:5]
+        
+        return found if found else ["Сайт отдал пустую страницу или сменил защиту."]
     except Exception as e:
-        return [f"Ошибка парсинга: {e}"]
+        return [f"Ошибка: {e}"]
 
 def init_db():
     conn = sqlite3.connect('housing.db')
