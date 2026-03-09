@@ -16,7 +16,7 @@ dp = Dispatcher(bot)
 
 # --- 2. ПАРСИНГ ---
 def get_listings_test():
-    scraper = cloudscraper.create_scraper() # Создает сессию как у браузера
+   scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'android', 'desktop': False})
     url = "https://www.funda.nl/zoeken/huur/?selected_area=%22eindhoven%22"
     try:
         response = scraper.get(url, timeout=20)
