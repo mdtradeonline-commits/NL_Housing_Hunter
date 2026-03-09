@@ -15,6 +15,7 @@ async def check_net(message: types.Message):
         await message.answer(f"Связь с интернетом есть! Код ответа: {response.status_code}")
     except Exception as e:
         await message.answer(f"Ошибка связи: {e}")
+
 # --- 1. НАСТРОЙКИ ---
 API_TOKEN = '8646275203:AAFenGqJIBpvk1DXrbBqDIOPiOILz3Zyllg'
 ADMIN_ID = 6999400196
