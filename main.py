@@ -1,3 +1,4 @@
+
 import logging
 import datetime
 import pytz
@@ -13,7 +14,7 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
-# --- 2. РАБОТА С БАЗОЙ ДАННЫХ (SQLite) ---
+# --- 2. РАБОТА С БАЗОЙ ДАННЫХ ---
 def init_db():
     conn = sqlite3.connect('housing.db')
     cursor = conn.cursor()
@@ -21,110 +22,86 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
             join_date TEXT,
-            lang TEXT
+            lang TEXT,
+            city TEXT
         )
     ''')
     conn.commit()
     conn.close()
 
-def add_or_update_user(user_id, lang=None):
+def add_or_update_user(user_id, lang=None, city=None):
     conn = sqlite3.connect('housing.db')
     cursor = conn.cursor()
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    # Пытаемся добавить, если нет — игнорим
     cursor.execute('INSERT OR IGNORE INTO users (user_id, join_date) VALUES (?, ?)', (user_id, now))
     if lang:
         cursor.execute('UPDATE users SET lang = ? WHERE user_id = ?', (lang, user_id))
+    if city:
+        cursor.execute('UPDATE users SET city = ? WHERE user_id = ?', (city, user_id))
     conn.commit()
     conn.close()
 
-def get_all_users():
+def get_users_by_city(city):
     conn = sqlite3.connect('housing.db')
     cursor = conn.cursor()
-    cursor.execute('SELECT user_id FROM users')
+    if city == 'All':
+        cursor.execute('SELECT user_id FROM users')
+    else:
+        cursor.execute('SELECT user_id FROM users WHERE city = ?', (city,))
     users = [row[0] for row in cursor.fetchall()]
     conn.close()
     return users
 
-# Запускаем создание базы при старте скрипта
 init_db()
 
-# --- 3. КНОПКИ МЕНЮ ---
+# --- 3. КНОПКИ ---
 def get_lang_menu():
     menu = ReplyKeyboardMarkup(resize_keyboard=True)
     menu.add(KeyboardButton('🇷🇺 Русский'), KeyboardButton('🇬🇧 English'), KeyboardButton('🇳🇱 Nederlands'))
     return menu
 
-def get_main_menu(lang):
+def get_city_menu():
     menu = ReplyKeyboardMarkup(resize_keyboard=True)
-    if lang == '🇷🇺 Русский':
-        menu.add(KeyboardButton('⚙️ Настройки языка'), KeyboardButton('🏠 Моя подписка'))
-    elif lang == '🇬🇧 English':
-        menu.add(KeyboardButton('⚙️ Language Settings'), KeyboardButton('🏠 My Subscription'))
-    else:
-        menu.add(KeyboardButton('⚙️ Instellingen'), KeyboardButton('🏠 Mijn abonnement'))
+    menu.add(KeyboardButton('🇳🇱 Eindhoven'), KeyboardButton('🇳🇱 Amsterdam'), KeyboardButton('🇧🇪 Brussels'))
+    menu.add(KeyboardButton('🌍 All NL/BE'))
     return menu
 
-# --- 4. ОБРАБОТКА КОМАНД ---
+def get_main_menu(lang):
+    menu = ReplyKeyboardMarkup(resize_keyboard=True)
+    menu.add(KeyboardButton('⚙️ Settings'), KeyboardButton('🏠 Subscription'))
+    return menu
+
+# --- 4. ОБРАБОТКА ---
 @dp.message_handler(commands=['start'])
 async def start_cmd(message: types.Message):
-    user_id = message.from_user.id
-    add_or_update_user(user_id) # Пишем в базу
-    
-    tz_nl = pytz.timezone('Europe/Amsterdam')
-    now_nl = datetime.datetime.now(tz_nl)
-    
-    await message.answer(
-        f"Goeiedag! Eindhoven: {now_nl.strftime('%H:%M')}\nChoose language:",
-        reply_markup=get_lang_menu()
-    )
+    add_or_update_user(message.from_user.id)
+    await message.answer("Choose your language:", reply_markup=get_lang_menu())
 
-# --- 5. ВЫБОР ЯЗЫКА И НАСТРОЙКИ ---
-@dp.message_handler(lambda message: message.text in ['🇷🇺 Русский', '🇬🇧 English', '🇳🇱 Nederlands'] or any(x in message.text for x in ["Настройки", "Settings", "Instellingen"]))
-async def handle_lang_and_settings(message: types.Message):
-    user_id = message.from_user.id
-    text = message.text
+@dp.message_handler(lambda m: m.text in ['🇷🇺 Русский', '🇬🇧 English', '🇳🇱 Nederlands'])
+async def handle_lang(message: types.Message):
+    add_or_update_user(message.from_user.id, lang=message.text)
+    await message.answer("Select your city:", reply_markup=get_city_menu())
 
-    if any(x in text for x in ["Настройки", "Settings", "Instellingen"]):
-        await message.answer("Select language / Выберите язык:", reply_markup=get_lang_menu())
-        return
+@dp.message_handler(lambda m: m.text in ['🇳🇱 Eindhoven', '🇳🇱 Amsterdam', '🇧🇪 Brussels', '🌍 All NL/BE'])
+async def handle_city(message: types.Message):
+    add_or_update_user(message.from_user.id, city=message.text)
+    await message.answer(f"City set to {message.text}! You will receive notifications.", reply_markup=get_main_menu(None))
 
-    # Сохраняем язык в базу
-    add_or_update_user(user_id, lang=text)
-    
-    confirm_text = {
-        '🇷🇺 Русский': "Язык установлен! 🇷🇺",
-        '🇬🇧 English': "Language set! 🇬🇧",
-        '🇳🇱 Nederlands': "Taal ingesteld! 🇳🇱"
-    }
-    await message.answer(confirm_text.get(text, "OK!"), reply_markup=get_main_menu(text))
-
-# --- 6. АДМИН-ПАНЕЛЬ И РАССЫЛКА ---
 @dp.message_handler(lambda message: message.from_user.id == ADMIN_ID)
 async def admin_msg(message: types.Message):
     if message.text.startswith('/'): return
-    
     confirm_menu = InlineKeyboardMarkup()
-    confirm_menu.add(InlineKeyboardButton("🚀 РАССЫЛКА (Всем)", callback_data="broadcast"))
-    confirm_menu.add(InlineKeyboardButton("❌ Отмена", callback_data="cancel"))
-    await message.reply(f"Админ, рассылаем это сообщение всем?", reply_markup=confirm_menu)
+    confirm_menu.add(InlineKeyboardButton("🚀 Broadcast All", callback_data="broadcast_all"))
+    await message.reply(f"Broadcast to everyone?", reply_markup=confirm_menu)
 
-@dp.callback_query_handler(lambda c: c.data == 'broadcast')
+@dp.callback_query_handler(lambda c: c.data == 'broadcast_all')
 async def process_broadcast(callback_query: types.CallbackQuery):
     msg_text = callback_query.message.reply_to_message.text
-    all_users = get_all_users() # Достаем всех из базы!
-    count = 0
+    all_users = get_users_by_city('All')
     for u_id in all_users:
-        try:
-            await bot.send_message(u_id, f"📢 НОВОЕ ОБЪЯВЛЕНИЕ:\n\n{msg_text}")
-            count += 1
-        except Exception: pass
-    await bot.answer_callback_query(callback_query.id, text=f"Отправлено {count} чел.")
-    await bot.send_message(ADMIN_ID, f"✅ Готово! Рассылка завершена ({count} чел.)")
-
-@dp.callback_query_handler(lambda c: c.data == 'cancel')
-async def cancel_broadcast(callback_query: types.CallbackQuery):
-    await bot.delete_message(callback_query.from_user.id, callback_query.message.message_id)
+        try: await bot.send_message(u_id, msg_text)
+        except: pass
+    await callback_query.answer("Sent!")
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
