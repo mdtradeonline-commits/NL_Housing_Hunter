@@ -1,9 +1,13 @@
+import os
 import logging
-import cloudscraper
-import asyncio
-from bs4 import BeautifulSoup
 from aiogram import Bot, Dispatcher, executor, types
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+
+# Берем токен из переменной окружения Railway
+API_TOKEN = os.getenv('BOT_TOKEN') 
+
+logging.basicConfig(level=logging.INFO)
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher(bot)
 
 # --- НАСТРОЙКИ ---
 API_TOKEN = '8646275203:AAFenGqJIBpvk1DXrbBqDIOPiOILz3Zyllg'
