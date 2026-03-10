@@ -1,45 +1,93 @@
-[10.03.2026 20:57] Maksim: /language
-[10.03.2026 21:13] NL Housing Hunter: 🔔 Новая квартира в Эйндховене:
-🏠 Flat Grote Berg
-🔗 https://www.pararius.com/apartment-for-rent/eindhoven/607adb18/grote-berg
-[10.03.2026 21:13] NL Housing Hunter: 🔔 Новая квартира в Эйндховене:
-🏠 Flat Anton Philipslaan
-🔗 https://www.pararius.com/apartment-for-rent/eindhoven/94f25ed3/anton-philipslaan
-[10.03.2026 21:13] NL Housing Hunter: 🔔 Новая квартира в Эйндховене:
-🏠 Flat Geldropseweg
-🔗 https://www.pararius.com/apartment-for-rent/eindhoven/a4a41f32/geldropseweg
-[10.03.2026 21:13] NL Housing Hunter: 🔔 Новая квартира в Эйндховене:
-🏠 Flat Boschdijk
-🔗 https://www.pararius.com/apartment-for-rent/eindhoven/4e17190f/boschdijk
-[10.03.2026 21:13] NL Housing Hunter: 🔔 Новая квартира в Эйндховене:
-🏠 Flat Petrus Dondersstraat
-🔗 https://www.pararius.com/apartment-for-rent/eindhoven/1b2f0e90/petrus-dondersstraat
-[10.03.2026 21:13] Maksim: /language
-[10.03.2026 21:14] Maksim: 🇳🇱 Eindhoven
-[10.03.2026 21:14] NL Housing Hunter: Город 🇳🇱 Eindhoven зафиксирован.
-[10.03.2026 21:14] Maksim: /language
-[10.03.2026 21:14] Maksim: 🏠 Pararius (Квартиры)
-[10.03.2026 21:14] NL Housing Hunter: Ищу квартиры в Eindhoven...
-[10.03.2026 21:14] NL Housing Hunter: 🏠 Flat Anton Philipslaan
-🔗 https://www.pararius.com/apartment-for-rent/eindhoven/94f25ed3/anton-philipslaan
+import logging
+import cloudscraper
+import asyncio
+import os
+from bs4 import BeautifulSoup
+from aiogram import Bot, Dispatcher, executor, types
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
-🏠 Flat Grote Berg
-🔗 https://www.pararius.com/apartment-for-rent/eindhoven/607adb18/grote-berg
+# --- НАСТРОЙКИ ---
+API_TOKEN = os.getenv('8646275203:AAFenGqJIBpvk1DXrbBqDIOPiOILz3Zyllg') # Теперь берем токен из переменных Railway!
+ADMIN_ID = 6999400196
 
-🏠 Flat Geldropseweg
-🔗 https://www.pararius.com/apartment-for-rent/eindhoven/a4a41f32/geldropseweg
+logging.basicConfig(level=logging.INFO)
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher(bot)
 
-🏠 Flat Boschdijk
-🔗 https://www.pararius.com/apartment-for-rent/eindhoven/4e17190f/boschdijk
+# --- ПАРСЕРЫ ---
+def get_scraper():
+    return cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'desktop': True})
 
-🏠 Flat Petrus Dondersstraat
-🔗 https://www.pararius.com/apartment-for-rent/eindhoven/1b2f0e90/petrus-dondersstraat
-[10.03.2026 21:14] Maksim: 🏠 Pararius (Квартиры)
-[10.03.2026 21:14] Maksim: ⚙️ Сменить город
-[10.03.2026 21:14] NL Housing Hunter: Выберите новый город:
-[10.03.2026 21:14] Maksim: 🇳🇱 Rotterdam
-[10.03.2026 21:14] NL Housing Hunter: Город 🇳🇱 Rotterdam зафиксирован.
-[10.03.2026 21:14] Maksim: /start
-[10.03.2026 21:14] NL Housing Hunter: Привет! Выбери язык:
-[10.03.2026 21:14] Maksim: 🇬🇧 English
-[10.03.2026 21:14] Maksim: /language
+def parse_housing(site, city):
+    fmt = city.lower().replace("the ", "").replace(" ", "-")
+    scraper = get_scraper()
+    try:
+        if site == 'Pararius':
+            url = f"https://www.pararius.com/apartments/{fmt}"
+            resp = scraper.get(url, timeout=20)
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            items = soup.select('h2.listing-search-item__title a')
+            return [f"🏠 {i.text.strip()}\n🔗 https://www.pararius.com{i['href']}" for i in items[:3]]
+        
+        elif site == 'Kamernet':
+            url = f"https://kamernet.nl/en/for-rent/rooms-{fmt}"
+            resp = scraper.get(url, timeout=20)
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            items = soup.select('.room-item-title')
+            return [f"🎓 {i.text.strip()}" for i in items[:3]]
+            
+        elif site == 'Huurwoningen':
+            url = f"https://www.huurwoningen.nl/in/{fmt}/"
+            resp = scraper.get(url, timeout=20)
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            items = soup.select('.listing-item')
+            return [f"🏢 {i.text.strip()}" for i in items[:3]]
+    except Exception as e:
+        return [f"Ошибка {site}: {str(e)[:20]}"]
+    return ["Ничего не найдено."]
+
+# --- МЕНЮ ---
+def get_main_menu():
+    m = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    m.add(KeyboardButton('🏠 Pararius'), KeyboardButton('🎓 Kamernet'), KeyboardButton('🏢 Huurwoningen'))
+    m.add(KeyboardButton('⚙️ Сменить город'), KeyboardButton('🔄 В начало'))
+    return m
+
+user_data = {}
+
+# --- ЛОГИКА ---
+@dp.message_handler(commands=['start', 'language'])
+async def start_cmd(message: types.Message):
+    await message.answer("Привет! Выбери город:", reply_markup=get_city_menu())
+
+@dp.message_handler(lambda m: '🇳🇱' in m.text or '🎓' in m.text)
+async def set_city(message: types.Message):
+    user_data[message.from_user.id] = message.text.split(" ", 1)[1]
+    await message.answer(f"Город {message.text} зафиксирован.", reply_markup=get_main_menu())
+
+@dp.message_handler(lambda m: m.text in ['🏠 Pararius', '🎓 Kamernet', '🏢 Huurwoningen'])
+async def search_handler(message: types.Message):
+    city = user_data.get(message.from_user.id, 'Eindhoven')
+    site = message.text.replace('🏠 ', '').replace('🎓 ', '').replace('🏢 ', '')
+    await message.answer(f"🔎 Ищу {site} в {city}...")
+    res = parse_housing(site, city)
+    await message.answer("\n\n".join(res) if res else "Пусто.")
+
+@dp.message_handler(lambda m: m.text == '⚙️ Сменить город')
+async def change_city(message: types.Message):
+    await message.answer("Выберите город:", reply_markup=get_city_menu())
+
+@dp.message_handler(lambda m: m.text == '🔄 В начало')
+async def reset_handler(message: types.Message):
+    await start_cmd(message)
+
+def get_city_menu():
+    m = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    for c in ['🇳🇱 Eindhoven', '🇳🇱 Amsterdam', '🇳🇱 Rotterdam', '🎓 Delft']:
+        m.add(KeyboardButton(c))
+    return m
+
+if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(bot.delete_webhook(drop_pending_updates=True))
+    executor.start_polling(dp, skip_updates=True)
