@@ -3,4 +3,3 @@ fastapi
 uvicorn
 aiohttp
 beautifulsoup4
-mollie-api-python
