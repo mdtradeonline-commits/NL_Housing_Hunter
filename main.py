@@ -12,7 +12,7 @@ from mollie.api.client import Client
 # ================= CONFIG =================
 
 TELEGRAM_TOKEN = "8646275203:AAFenGqJIBpvk1DXrbBqDIOPiOILz3Zyllg"
-MOLLIE_API_KEY = "live_xxxxxxxxx"
+MOLLIE_API_KEY = "test_zQyAj9fcA3uqhysNH9J6u6VHdy7xcW"
 
 CHECK_INTERVAL = 30
 REPLY_DELAY = 900
