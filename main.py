@@ -12,9 +12,9 @@ from bs4 import BeautifulSoup
 import aiohttp
 
 # ================= CONFIG =================
-TELEGRAM_TOKEN = os.getenv("8646275203:AAFenGqJIBpvk1DXrbBqDIOPiOILz3Zyllg
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN
 ")
-MOLLIE_API_KEY = os.getenv("live_PDmrMrKdm2MCU2h8whmqcsHgxzxEM9")
+MOLLIE_API_KEY = os.getenv("live_xxxxxxx")
 BOT_USERNAME = "your_bot_name"  # пример: housing_bot_mollie
 CHECK_INTERVAL = 30  # секунд
 PRICE_2W = "19.90"
