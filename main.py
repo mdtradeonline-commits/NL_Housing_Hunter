@@ -94,6 +94,9 @@ TEXTS = {
         "btn_change_city": "📍 Change city",
         "btn_change_lang": "🌍 Change language",
         "btn_info": "ℹ️ Info & FAQ",
+        "choose_price": "💶 Choose max rent price:",
+        "choose_type": "🏠 Choose property type:",
+        "sub_expiring": "⚠️ <b>Your subscription expires in 3 days!</b>\n\nRenew now to keep receiving alerts.",
         "info_msg": "ℹ️ <b>Info & Support</b>",
         "faq_btn": "❓ FAQ",
         "disclaimer_btn": "⚖️ Disclaimer",
@@ -159,6 +162,9 @@ TEXTS = {
         "btn_change_city": "📍 Stad wijzigen",
         "btn_change_lang": "🌍 Taal wijzigen",
         "btn_info": "ℹ️ Info & FAQ",
+        "choose_price": "💶 Choose max rent price:",
+        "choose_type": "🏠 Choose property type:",
+        "sub_expiring": "⚠️ <b>Your subscription expires in 3 days!</b>\n\nRenew now to keep receiving alerts.",
         "info_msg": "ℹ️ <b>Info & Support</b>",
         "faq_btn": "❓ FAQ",
         "disclaimer_btn": "⚖️ Disclaimer",
@@ -228,6 +234,9 @@ TEXTS = {
         "info_msg": "ℹ️ <b>Инфо & Поддержка</b>",
         "faq_btn": "❓ FAQ",
         "disclaimer_btn": "⚖️ Отказ от ответственности",
+        "choose_price": "💶 Выбери максимальную цену:",
+        "choose_type": "🏠 Выбери тип жилья:",
+        "sub_expiring": "⚠️ <b>Твоя подписка истекает через 3 дня!</b>\n\nПродли сейчас чтобы продолжать получать объявления.",
         "choose_radius": "📏 Выбери радиус поиска:",
         "radius_set": "✅ Радиус <b>{radius} км</b> вокруг {city}",
     }
@@ -320,6 +329,8 @@ async def init_db():
                 language         TEXT    DEFAULT 'en',
                 city             TEXT,
                 radius           INTEGER DEFAULT 10,
+                max_price        INTEGER DEFAULT 0,
+                prop_type        TEXT    DEFAULT 'any',
                 plan             TEXT,
                 subscription_end TEXT,
                 demo_used        INTEGER DEFAULT 0
@@ -367,6 +378,16 @@ async def set_city(user_id: int, city: str):
 async def set_radius(user_id: int, radius: int):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("UPDATE users SET radius=? WHERE id=?", (radius, user_id))
+        await db.commit()
+
+async def set_price(user_id: int, price: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE users SET max_price=? WHERE id=?", (price, user_id))
+        await db.commit()
+
+async def set_prop_type(user_id: int, prop_type: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE users SET prop_type=? WHERE id=?", (prop_type, user_id))
         await db.commit()
 
 async def activate_demo(user_id: int):
@@ -489,6 +510,29 @@ def radius_keyboard(city: str):
             InlineKeyboardButton(text="📍 10 km", callback_data=f"radius_{city}_10"),
             InlineKeyboardButton(text="📍 20 km", callback_data=f"radius_{city}_20"),
         ]
+    ])
+
+def price_keyboard(city: str, radius: int):
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="💶 Any price",  callback_data=f"price_{city}_{radius}_0"),
+        ],
+        [
+            InlineKeyboardButton(text="≤ €800",  callback_data=f"price_{city}_{radius}_800"),
+            InlineKeyboardButton(text="≤ €1200", callback_data=f"price_{city}_{radius}_1200"),
+        ],
+        [
+            InlineKeyboardButton(text="≤ €1500", callback_data=f"price_{city}_{radius}_1500"),
+            InlineKeyboardButton(text="≤ €2000", callback_data=f"price_{city}_{radius}_2000"),
+        ],
+    ])
+
+def type_keyboard(city: str, radius: int, price: int):
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🏠 Any type",   callback_data=f"type_{city}_{radius}_{price}_any")],
+        [InlineKeyboardButton(text="🛏 Room",        callback_data=f"type_{city}_{radius}_{price}_room")],
+        [InlineKeyboardButton(text="🏢 Apartment",  callback_data=f"type_{city}_{radius}_{price}_apartment")],
+        [InlineKeyboardButton(text="🏡 House",      callback_data=f"type_{city}_{radius}_{price}_house")],
     ])
 
 def plan_keyboard(lang: str, demo_used: bool):
@@ -679,12 +723,52 @@ async def cb_radius(callback: types.CallbackQuery):
     demo_used = user[5] if user else 0
     await set_radius(callback.from_user.id, radius)
     await callback.message.edit_text(
-        t(lang, "radius_set").format(radius=radius, city=city),
-        reply_markup=plan_keyboard(lang, bool(demo_used)),
+        t(lang, "choose_price"),
+        reply_markup=price_keyboard(city, radius),
         parse_mode="HTML"
     )
     await callback.answer()
 
+
+
+# --- Выбор цены ---
+@dp.callback_query(F.data.startswith("price_"))
+async def cb_price(callback: types.CallbackQuery):
+    parts  = callback.data.split("_")  # price_Amsterdam_10_800
+    city   = parts[1]
+    radius = int(parts[2])
+    price  = int(parts[3])
+    user   = await get_user(callback.from_user.id)
+    lang   = user[1] if user else "en"
+    await set_price(callback.from_user.id, price)
+    await callback.message.edit_text(
+        t(lang, "choose_type"),
+        reply_markup=type_keyboard(city, radius, price),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+
+# --- Выбор типа жилья ---
+@dp.callback_query(F.data.startswith("type_"))
+async def cb_type(callback: types.CallbackQuery):
+    parts     = callback.data.split("_")  # type_Amsterdam_10_800_room
+    city      = parts[1]
+    radius    = int(parts[2])
+    price     = int(parts[3])
+    prop_type = parts[4]
+    user      = await get_user(callback.from_user.id)
+    lang      = user[1] if user else "en"
+    demo_used = user[5] if user else 0
+    await set_prop_type(callback.from_user.id, prop_type)
+    type_labels = {"any": "Any", "room": "Room", "apartment": "Apartment", "house": "House"}
+    price_label = f"≤ €{price}" if price > 0 else "Any price"
+    await callback.message.edit_text(
+        f"✅ <b>{city}</b> | {radius}km | {price_label} | {type_labels[prop_type]}\n\nNow choose your plan:",
+        reply_markup=plan_keyboard(lang, bool(demo_used)),
+        parse_mode="HTML"
+    )
+    await callback.answer()
 
 # --- Выбор плана ---
 @dp.callback_query(F.data.startswith("plan_"))
@@ -885,10 +969,16 @@ async def parse_and_send():
         await save_ad(url)
 
         for user_id, lang, city, plan in active_users:
-            # Фильтр по городу
-            if city and city.lower() not in url.lower() and city.lower() not in title.lower():
-                # Мягкая проверка — пропускаем только если город явно не совпадает
-                pass  # отправляем всё равно, парсер уже фильтровал по городу
+            # Фильтр по цене
+            user_data = await get_user(user_id)
+            max_price = user_data[4] if user_data else 0
+            if max_price > 0:
+                import re
+                prices_found = re.findall(r"[€$]\s*(\d+)", title)
+                if prices_found:
+                    listing_price = int(prices_found[0])
+                    if listing_price > max_price:
+                        continue
 
             if plan == "Premium":
                 letter = t(lang if lang in ["en", "nl"] else "en", "letter")
@@ -929,12 +1019,33 @@ async def send_pending_standard():
             print(f"[Send Standard] {user_id}: {e}")
 
 
+async def check_expiring_subscriptions():
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("SELECT id, language, subscription_end, plan FROM users WHERE subscription_end IS NOT NULL")
+        users = await cursor.fetchall()
+    for user_id, lang, sub_end, plan in users:
+        if not sub_end:
+            continue
+        try:
+            end_dt = datetime.strptime(sub_end, "%Y-%m-%d %H:%M:%S")
+            days_left = (end_dt - datetime.now()).days
+            if days_left == 3:
+                await bot.send_message(
+                    user_id,
+                    t(lang or "en", "sub_expiring"),
+                    parse_mode="HTML"
+                )
+        except Exception as e:
+            print(f"[Expiry] error for {user_id}: {e}")
+
+
 async def scheduler():
     await asyncio.sleep(10)
     while True:
         try:
             await parse_and_send()
             await send_pending_standard()
+            await check_expiring_subscriptions()
         except Exception as e:
             print(f"[Scheduler] error: {e}")
         await asyncio.sleep(CHECK_INTERVAL)
