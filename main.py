@@ -1,39 +1,3 @@
-import asyncio
-import aiosqlite
-import aiohttp
-from aiohttp import web
-from bs4 import BeautifulSoup
-from aiogram import Bot, Dispatcher, types, F
-from aiogram.filters import CommandStart
-from aiogram.types import (
-    ReplyKeyboardMarkup, KeyboardButton,
-    InlineKeyboardMarkup, InlineKeyboardButton
-)
-from mollie.api.client import Client
-from datetime import datetime, timedelta
-import os
-
-# ================= CONFIG =================
-
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8646275203:AAFNkLbx47Xm2I1Ttj3hQGc6s0E289KMPsw")
-MOLLIE_API_KEY = os.getenv("MOLLIE_API_KEY", "live_PDmrMrKdm2MCU2h8whmqcsHgxzxEM9")
-BOT_USERNAME   = os.getenv("BOT_USERNAME", "best_rent_nl_bot")
-RAILWAY_URL    = os.getenv("RAILWAY_URL", "https://nlhousinghunter-production.up.railway.app")
-
-STANDARD_DELAY = 900   # 15 минут задержки для Стандарт (в секундах)
-CHECK_INTERVAL = 300   # проверка каждые 5 минут
-
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    )
-}
-
-# ================= ТЕКСТЫ =================
-
-TEXTS = {
     "en": {
         "welcome": (
             "🏠 <b>Housing Bot Netherlands</b>\n\n"
