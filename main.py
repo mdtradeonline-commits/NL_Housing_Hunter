@@ -15,7 +15,7 @@ import os
 
 # ================= CONFIG =================
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8646275203:AAFenGqJIBpvk1DXrbBqDIOPiOILz3Zyllg")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8646275203:AAFNkLbx47Xm2I1Ttj3hQGc6s0E289KMPsw")
 MOLLIE_API_KEY = os.getenv("MOLLIE_API_KEY", "live_PDmrMrKdm2MCU2h8whmqcsHgxzxEM9")
 BOT_USERNAME   = os.getenv("BOT_USERNAME", "best_rent_nl_bot")
 RAILWAY_URL    = os.getenv("RAILWAY_URL", "https://nlhousinghunter-production.up.railway.app")
