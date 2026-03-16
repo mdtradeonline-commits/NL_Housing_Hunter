@@ -564,17 +564,19 @@ async def parse_pararius(city: str = None, radius: int = 10) -> list[tuple[str, 
         base = f"https://www.pararius.com/apartments/{city.lower()}/{radius}km"
     ads = []
     try:
+        print(f"[Pararius] fetching: {base}")
         async with aiohttp.ClientSession(headers=HEADERS) as session:
             async with session.get(base, timeout=aiohttp.ClientTimeout(total=20)) as resp:
+                print(f"[Pararius] status: {resp.status}")
                 if resp.status != 200:
                     return []
                 html = await resp.text()
         soup  = BeautifulSoup(html, "html.parser")
-        items = (
-            soup.select("li.search-list__item--listing a.listing-search-item__link--title")
-            or soup.select("section.listing-search-item a[href*='/apartment']")
-            or soup.select("a.property-listing-link")
-        )
+        sel1 = soup.select("li.search-list__item--listing a.listing-search-item__link--title")
+        sel2 = soup.select("section.listing-search-item a[href*='/apartment']")
+        sel3 = soup.select("a.property-listing-link")
+        print(f"[Pararius] sel1={len(sel1)} sel2={len(sel2)} sel3={len(sel3)}")
+        items = sel1 or sel2 or sel3
         for item in items:
             title = item.get_text(strip=True)
             href  = item.get("href", "")
@@ -592,16 +594,18 @@ async def parse_kamernet(city: str = None, radius: int = 10) -> list[tuple[str, 
         base = f"https://kamernet.nl/en/for-rent/rooms-{city.lower()}?radius={radius}"
     ads = []
     try:
+        print(f"[Kamernet] fetching: {base}")
         async with aiohttp.ClientSession(headers=HEADERS) as session:
             async with session.get(base, timeout=aiohttp.ClientTimeout(total=20)) as resp:
+                print(f"[Kamernet] status: {resp.status}")
                 if resp.status != 200:
                     return []
                 html = await resp.text()
         soup  = BeautifulSoup(html, "html.parser")
-        items = (
-            soup.select("a.search-result-item")
-            or soup.select("a.tile")
-        )
+        sel1 = soup.select("a.search-result-item")
+        sel2 = soup.select("a.tile")
+        print(f"[Kamernet] sel1={len(sel1)} sel2={len(sel2)}")
+        items = sel1 or sel2
         for item in items:
             title = item.get_text(strip=True)[:120]
             href  = item.get("href", "")
@@ -675,6 +679,26 @@ dp  = Dispatcher()
 
 
 ADMIN_ID = 6999400196
+@dp.message(F.text == "/debug")
+async def cmd_debug(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("SELECT * FROM users WHERE id=?", (message.from_user.id,))
+        user = await cursor.fetchone()
+        cursor2 = await db.execute("SELECT COUNT(*) FROM users")
+        total = await cursor2.fetchone()
+        cursor3 = await db.execute("SELECT COUNT(*) FROM sent_ads")
+        ads_count = await cursor3.fetchone()
+    await message.answer(
+        f"<b>Debug info:</b>\n\n"
+        f"User data: {user}\n\n"
+        f"Total users: {total[0]}\n"
+        f"Sent ads: {ads_count[0]}",
+        parse_mode="HTML"
+    )
+
+
 
 @dp.message(F.text == "/admin")
 async def cmd_admin(message: types.Message):
