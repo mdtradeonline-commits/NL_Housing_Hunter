@@ -15,7 +15,7 @@ import os
 
 # ================= CONFIG =================
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8646275203:AAFNkLbx47Xm2I1Ttj3hQGc6s0E289KMPsw")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8646275203:AAFenGqJIBpvk1DXrbBqDIOPiOILz3Zyllg")
 MOLLIE_API_KEY = os.getenv("MOLLIE_API_KEY", "live_PDmrMrKdm2MCU2h8whmqcsHgxzxEM9")
 BOT_USERNAME   = os.getenv("BOT_USERNAME", "best_rent_nl_bot")
 RAILWAY_URL    = os.getenv("RAILWAY_URL", "https://nlhousinghunter-production.up.railway.app")
@@ -162,9 +162,9 @@ TEXTS = {
         "btn_change_city": "📍 Stad wijzigen",
         "btn_change_lang": "🌍 Taal wijzigen",
         "btn_info": "ℹ️ Info & FAQ",
-        "choose_price": "💶 Kies maximale huurprijs:",
-        "choose_type": "🏠 Kies woningtype:",
-        "sub_expiring": "⚠️ <b>Je abonnement verloopt over 3 dagen!</b>\n\nVerleng nu om meldingen te blijven ontvangen.",
+        "choose_price": "💶 Choose max rent price:",
+        "choose_type": "🏠 Choose property type:",
+        "sub_expiring": "⚠️ <b>Your subscription expires in 3 days!</b>\n\nRenew now to keep receiving alerts.",
         "info_msg": "ℹ️ <b>Info & Support</b>",
         "faq_btn": "❓ FAQ",
         "disclaimer_btn": "⚖️ Disclaimer",
@@ -512,7 +512,7 @@ def radius_keyboard(city: str):
         ]
     ])
 
-def price_keyboard(city: str, radius: int):
+def price_keyboard(city: str, radius: int, lang: str = "en"):
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="💶 Any price",  callback_data=f"price_{city}_{radius}_0"),
@@ -527,7 +527,7 @@ def price_keyboard(city: str, radius: int):
         ],
     ])
 
-def type_keyboard(city: str, radius: int, price: int):
+def type_keyboard(city: str, radius: int, price: int, lang: str = "en"):
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🏠 Any type",   callback_data=f"type_{city}_{radius}_{price}_any")],
         [InlineKeyboardButton(text="🛏 Room",        callback_data=f"type_{city}_{radius}_{price}_room")],
@@ -661,7 +661,7 @@ async def create_payment(plan_key: str, user_id: int) -> str:
         "description": f"Housing Bot — {plan_name} {weeks} weeks",
         "redirectUrl": f"https://t.me/{BOT_USERNAME}",
         "webhookUrl":  f"{RAILWAY_URL}/webhook/mollie",
-        "method": "ideal",
+        "method": ["ideal", "banktransfer"],
         "metadata": {"user_id": str(user_id), "plan": plan_name, "weeks": str(weeks)},
     })
     await save_payment(payment.id, user_id, plan_name, weeks)
@@ -724,7 +724,7 @@ async def cb_radius(callback: types.CallbackQuery):
     await set_radius(callback.from_user.id, radius)
     await callback.message.edit_text(
         t(lang, "choose_price"),
-        reply_markup=price_keyboard(city, radius),
+        reply_markup=price_keyboard(city, radius, lang),
         parse_mode="HTML"
     )
     await callback.answer()
@@ -743,7 +743,7 @@ async def cb_price(callback: types.CallbackQuery):
     await set_price(callback.from_user.id, price)
     await callback.message.edit_text(
         t(lang, "choose_type"),
-        reply_markup=type_keyboard(city, radius, price),
+        reply_markup=type_keyboard(city, radius, price, lang),
         parse_mode="HTML"
     )
     await callback.answer()
@@ -761,10 +761,26 @@ async def cb_type(callback: types.CallbackQuery):
     lang      = user[1] if user else "en"
     demo_used = user[5] if user else 0
     await set_prop_type(callback.from_user.id, prop_type)
-    type_labels = {"any": "Any", "room": "Room", "apartment": "Apartment", "house": "House"}
-    price_label = f"≤ €{price}" if price > 0 else "Any price"
+    type_labels = {
+        "en": {"any": "Any", "room": "Room", "apartment": "Apartment", "house": "House"},
+        "nl": {"any": "Alle", "room": "Kamer", "apartment": "Appartement", "house": "Huis"},
+        "ru": {"any": "Любой", "room": "Комната", "apartment": "Квартира", "house": "Дом"},
+    }
+    price_labels = {
+        "en": f"≤ €{price}" if price > 0 else "Any price",
+        "nl": f"≤ €{price}" if price > 0 else "Elke prijs",
+        "ru": f"≤ €{price}" if price > 0 else "Любая цена",
+    }
+    next_labels = {
+        "en": "Now choose your plan:",
+        "nl": "Kies nu je abonnement:",
+        "ru": "Теперь выбери план:",
+    }
+    lbl = type_labels.get(lang, type_labels["en"])
+    price_label = price_labels.get(lang, price_labels["en"])
+    next_label  = next_labels.get(lang, next_labels["en"])
     await callback.message.edit_text(
-        f"✅ <b>{city}</b> | {radius}km | {price_label} | {type_labels[prop_type]}\n\nNow choose your plan:",
+        f"✅ <b>{city}</b> | {radius}km | {price_label} | {lbl[prop_type]}\n\n{next_label}",
         reply_markup=plan_keyboard(lang, bool(demo_used)),
         parse_mode="HTML"
     )
@@ -1040,12 +1056,15 @@ async def check_expiring_subscriptions():
 
 
 async def scheduler():
+    print("[Scheduler] started!")
     await asyncio.sleep(10)
     while True:
         try:
+            print("[Scheduler] running cycle...")
             await parse_and_send()
             await send_pending_standard()
             await check_expiring_subscriptions()
+            print("[Scheduler] cycle done")
         except Exception as e:
             print(f"[Scheduler] error: {e}")
         await asyncio.sleep(CHECK_INTERVAL)
