@@ -1,6 +1,5 @@
-aiogram
+aiogram>=3.0.0
 aiohttp
 aiosqlite
 beautifulsoup4
 mollie-api-python
-pydantic<2.0
