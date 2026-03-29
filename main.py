@@ -432,7 +432,7 @@ async def set_field(user_id: int, field: str, value):
         await db.commit()
 
 async def activate_demo(user_id: int):
-    end = datetime.now() + timedelta(hours=24)
+    end = datetime.now() + timedelta(hours=72)
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
             "UPDATE users SET plan='Premium', subscription_end=?, demo_used=1, night_mode=-1 WHERE id=?",
